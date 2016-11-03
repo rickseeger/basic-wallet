@@ -1,6 +1,6 @@
 
 
-import os, time, logging, requests, string, json, re
+import os, yaml, logging, requests, string, json, re
 
 
 # logging
@@ -8,24 +8,28 @@ logging.basicConfig(format='%(asctime)-15s %(levelname)s %(message)s', level=log
 logger = logging.getLogger(__name__)
 
 
-# config
-networking_enabled = True
-min_confirmations = 1
-max_fee_usd = 5.00
-default_fee_per_byte = 30
-cache_dir = '/home/rseeger/cache'
-key_file = '/home/rseeger/proj/blockchains/bitcoin/keys'
-api_url = 'http://crypdex.io:3001/insight-api'
+# load config
+config = None
+config_file = os.path.expanduser('~/.basic-wallet/config.yaml')
+try:
+    with open(config_file, 'r') as stream:
+        config = yaml.load(stream)
+except:
+    logger.critical('Unable to open config file: {}'.format(config_file))
+    exit(1)
 
 
 def pluralize(amount):
     return '' if (amount == 1) else 's'
 
 
-# convert URL to a valid local filesystem path
+# convert URL to a unique local filesystem path
 def get_cache_path(url):
-    match = re.match('^(.*:)//([A-Za-z0-9\-\.]+)(:[0-9]+)?(.*)$', url)
 
+    if not os.path.exists(config['cache_dir']):
+        os.makedirs(config['cache_dir'])
+
+    match = re.match('^(.*:)//([A-Za-z0-9\-\.]+)(:[0-9]+)?(.*)$', url)
     if (match is None):
         logger.critical('Invalid URL: {}'.format(url))
         exit(1)
@@ -34,17 +38,17 @@ def get_cache_path(url):
     cache_file = g[1] + '-' + g[3]
     cache_file = re.sub('[=?/.]', '-', cache_file)
     cache_file = re.sub('-+', '-', cache_file)
-    cache_path = cache_dir + '/' + cache_file
+    cache_path = config['cache_dir'] + '/' + cache_file
 
     return cache_path
-
 
 
 def url_get(url):
 
     html = None
     cache_path = get_cache_path(url)
-    if (networking_enabled):
+
+    if (config['networking_enabled']):
         try:
             response = requests.get(url)
         except requests.exceptions.RequestException as e:
@@ -120,10 +124,11 @@ def confirm_tx(tid):
     dbcursor.close()
     dbconn.close()
 
-    # return current balance for address in satoshis
+
+# return current balance for address in satoshis
 def get_raw_balance(address):
 
-    request = '{}/addr/{}/balance'.format(api_url, address)
+    request = '{}/addr/{}/balance'.format(config['api_url'], address)
     balance = url_get(request)
 
     try:
@@ -170,7 +175,7 @@ def broadcast(tx_hex):
 def get_bitcoin_price():
 
     # parse response
-    html = url_get('{}/currency'.format(api_url))
+    html = url_get('{}/currency'.format(config['api_url']))
     try:
         quote = json.loads(html)
 
