@@ -23,7 +23,7 @@ def main():
 
     # report column format
     fmt = '%-32s %-40s %12s %12s'
-    rpt = '\n' + fmt % ('Name', 'Address', 'BTC','USD') + '\n\n'
+    rpt = '\n' + fmt % ('Name', 'Address', 'BTC','USD') + '\n'
 
     # fetch balances
     total = 0.0
@@ -41,7 +41,7 @@ def main():
         single_address = True
         found = lookup(args['search'][0])
         if found is None:
-            logger.error('No address found matching "{}"'.format(source))
+            logger.error('No address found matching "{}"'.format(args['search'][0]))
             exit(1)
         else:
             entries = [ found ]
@@ -57,7 +57,7 @@ def main():
         bal_disp = '{:,.8f}'.format(bal)
         usd_disp = '{:,.2f}'.format(bal*btc)
 
-        if (bal > 0) or args['showall']:
+        if (bal > 0) or args['showall'] or single_address:
             rpt += fmt % (name, addr, bal_disp, usd_disp) + '\n'
 
     # totals
