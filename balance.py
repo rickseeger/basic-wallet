@@ -3,7 +3,7 @@
 # Fetches balance for a single address or entire wallet
 
 import sys, argparse, logging
-from btclib import config, logger, get_raw_balance, get_bitcoin_price, get_wallet, lookup
+from btclib import config, logger, get_balance, get_bitcoin_price, get_wallet, lookup
 
 
 def main():
@@ -52,7 +52,7 @@ def main():
         name = item['name']
         addr = item['address']
 
-        bal = float(get_raw_balance(addr)) / 1e8
+        bal = float(get_balance(addr)) / 1e8
         total += bal
         bal_disp = '{:,.8f}'.format(bal)
         usd_disp = '{:,.2f}'.format(bal*btc)

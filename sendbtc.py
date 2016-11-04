@@ -4,8 +4,9 @@
 
 import logging, argparse, json
 from btclib import config, logger, get_unspent, get_bitcoin_price, lookup
-from btclib import pluralize, validate, broadcast
+from btclib import pluralize, broadcast
 from bitcoin import mktx, sign
+from rosetta import validate
 
 
 # validate miner fee argument
@@ -69,8 +70,6 @@ def main():
         privkey = entry['privkey']
         logger.debug('Found source address {} {} in wallet'.format(name, address))
         from_addrs.append(address)
-
-        # save private key in dict for later signing
         privkeys[address] = privkey
 
         # gather UTXOs
@@ -80,27 +79,28 @@ def main():
             utxo['output'] = '{}:{}'.format(tx['id'], tx['vout'])
             utxo['address'] = address
             utxo['value'] = tx['amount']
+            logger.debug('utxo["value"] = {}'.format(utxo['value']))
             utxos.append(utxo)
 
-    # UTXO stats
-    naddr = len(args['from'])
-    addr_suffix = '' if naddr == 1 else 'es'
-    nutxos = len(utxos)
+    # report UTXO summary
     btc_price = get_bitcoin_price()
+    naddr = len(args['from'])
+    nutxos = len(utxos)
     avail_satoshi = sum([tx['value'] for tx in utxos])
     avail_usd = (avail_satoshi / 1e8) * btc_price
-    logger.info('Unspent: {} address{} {} UTXO{} {:,.0f} Satoshi ${:,.2f} USD'.format(naddr, addr_suffix, nutxos, pluralize(nutxos), avail_satoshi, avail_usd))
-
-
+    addr_suffix = '' if naddr == 1 else 'es'
+    logger.info('UTXO summary {} address{} {} UTXO{} {:,.0f} Satoshi ${:,.2f} USD'.format(naddr, addr_suffix, nutxos, pluralize(nutxos), avail_satoshi, avail_usd))
+        
+    
     # build tx
     txins = []
     txouts = []
     fee_per_byte = int(args['fee'][0])
-    logger.debug('using fee of {} satoshis per byte'.format(fee_per_byte))
+    logger.debug('Using fee of {} satoshis per byte'.format(fee_per_byte))
 
     # sweep all BTC
     if args['amount'] == None:
-        logger.warning('Sweeping {:,.0f} satoshi from all UTXOs'.format(avail_satoshi))
+        logger.warning('Sweeping entire {:,.0f} satoshi from all UTXOs'.format(avail_satoshi))
         est_length = config['len-base'] + (config['len-per-input'] * nutxos) + config['len-per-output']
         fee = est_length * fee_per_byte
 
@@ -129,12 +129,14 @@ def main():
         remaining = send_satoshi + initial_fee
         total_fees = initial_fee
 
-        # avoid polluting the mempool by spending smallest UTXOs first
+        # Environmentally-friendly transfer: help reduce the size of
+        # the mempool by spending smallest UTXOs first
         ordered_utxos = sorted(utxos, key=lambda k: k['value'])
 
         # inputs
         n = 0
         total = 0
+        change = 0
         for utxo in ordered_utxos:
             fee_inc = (config['len-per-input'] * fee_per_byte)
             remaining += fee_inc
@@ -145,7 +147,7 @@ def main():
             txins.append(utxo)
             n += 1
 
-            if remaining <= 0:
+            if remaining < 0:
                 change = -remaining
                 change_address = utxo['address']
                 break
@@ -155,36 +157,39 @@ def main():
             note = ''
             if (remaining <= total_fees):
                 note = 'after adding miner fees '
-                logger.critical('Insufficient funds {}{:,.0f} > {:,.0f}'.format(note, send_satoshi + total_fees, avail_satoshi))
-                exit(1)
+            logger.critical('Insufficient funds {}{:,.0f} > {:,.0f}'.format(note, send_satoshi + total_fees, avail_satoshi))
+            exit(1)
 
         # outputs
         txouts = [ { 'address' : dest, 'value' : send_satoshi } ]
         logger.info('OUTPUT 0 Address {} Value {:,.0f}'.format(dest, send_satoshi))
 
 
-        # trivial remainder condition: it costs more in fees to use the UTXO
-        # than what actually remains there, give to miner instead for speed boost
-        sweep_utxo_len = config['len-base'] + config['len-per-input'] + config['len-per-output']
-        sweep_utxo_fee = sweep_utxo_len * config['default-satoshi-per-byte-fee']
-        logger.debug('Change leftover: {}, Sweep UTXO fee: {}'.format(change, sweep_utxo_fee))
-        if change < sweep_utxo_fee:
-            change_usd = (change/1e8) * btc_price
-            logger.warning('Trivial UTXO remainder, giving the miner a bonus of {:,.0f} Satoshi ${:,.2f} USD'.format(change, change_usd))
+        if (change > 0):
 
-        # return change
-        else:
+            # trivial remainder condition: it costs more in fees to
+            # use the UTXO than what actually remains there, so just
+            # leave it for the miner and a take speed bonus.
 
-            # merge if change going to same address
-            if (change_address == dest):
-                merged_value = send_satoshi + change
-                logger.warning('Change address same as destination, merging output values {:,.0f}'.format(merged_value))
-                txouts = [ { 'address' : dest, 'value' : merged_value } ]
+            sweep_utxo_len = config['len-base'] + config['len-per-input'] + config['len-per-output']
+            sweep_utxo_fee = sweep_utxo_len * config['default-satoshi-per-byte-fee']
+            if change < sweep_utxo_fee:
+                change_usd = (change/1e8) * btc_price
+                logger.warning('Trivial UTXO remainder released to miner {:,.0f} Satoshi ${:,.2f} USD'.format(change, change_usd))
 
-            # extra output
+            # return change
             else:
-                txouts.append( { 'address' : change_address, 'value' : change } )
-                logger.info('OUTPUT 1 Address {} Value {:,.0f}'.format(change_address, change))
+
+                # merge if change going to dest address
+                if (change_address == dest):
+                    merged_value = send_satoshi + change
+                    logger.warning('Change address same as destination, merging output values {:,.0f}'.format(merged_value))
+                    txouts = [ { 'address' : dest, 'value' : merged_value } ]
+
+                # add extra output
+                else:
+                    txouts.append( { 'address' : change_address, 'value' : change } )
+                    logger.info('OUTPUT 1 Address {} Value {:,.0f}'.format(change_address, change))
 
 
     # sanity checks
@@ -235,7 +240,7 @@ def main():
     if tid is None:
         logger.critical('Failed to submit transaction to the network')
     else:
-        logger.warning('Transaction {} submitted to the network'.format(tid))
+        logger.warning('Broadcasted TXID {}'.format(tid))
 
 
 if __name__ == "__main__":

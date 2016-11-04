@@ -1,7 +1,7 @@
 
 
 import os, yaml, logging, requests, string, json, re
-
+from rosetta import validate
 
 # logger
 logging.basicConfig(format='%(asctime)-15s %(levelname)s %(message)s')
@@ -19,10 +19,6 @@ except:
     exit(1)
 
 
-def pluralize(amount):
-    return '' if (amount == 1) else 's'
-
-
 # retrieve and validate all wallet addresses
 def get_wallet():
     n = 0
@@ -36,16 +32,16 @@ def get_wallet():
             privkey = item['privkey']
 
         except KeyError:
-            logger.warning('Wallet address #{} is misconfigured'.format(n))
+            logger.error('Wallet address #{} is misconfigured'.format(n))
             continue
 
         if not validate(address):
-            logger.critical('{} address {} is not a valid Bitcoin address'.format(name, address))
+            logger.error('{} address {} is not a valid Bitcoin address'.format(name, address))
             continue
 
         wallet.append( {'name' : name, 'address' : address, 'privkey' : privkey } )
 
-    return wallet
+    return sorted(wallet, key=lambda k: k['name'])
 
 
 # find a wallet address by substring match
@@ -62,13 +58,18 @@ def lookup(search_string):
 # convert URL to a unique local filesystem path
 def get_cache_path(url):
 
+    if 'cache-dir' not in config.keys() or \
+       config['cache-dir'] is None or \
+       len(config['cache-dir'].strip()) == 0:
+        return None
+
     if not os.path.exists(config['cache-dir']):
         os.makedirs(config['cache-dir'])
 
     match = re.match('^(.*:)//([A-Za-z0-9\-\.]+)(:[0-9]+)?(.*)$', url)
     if (match is None):
-        logger.critical('Invalid URL: {}'.format(url))
-        exit(1)
+        logger.error('Invalid URL: {}'.format(url))
+        return None
 
     g = match.groups()
     cache_file = g[1] + '-' + g[3]
@@ -79,6 +80,7 @@ def get_cache_path(url):
     return cache_path
 
 
+# return the response from a URL get or None
 def url_get(url):
 
     html = None
@@ -86,83 +88,50 @@ def url_get(url):
 
     if (config['networking-enabled']):
         try:
+            logger.debug('GET {}'.format(url))
             response = requests.get(url)
         except requests.exceptions.RequestException as e:
-            logger.critical('Request to {} failed: {}'.format(url, e))
-            exit(1)
+            logger.error('Request failed: {}'.format(e))
+            return None
 
-        # cache responses
         html = response.text.strip()
         clean = filter(lambda x: x in string.printable, html)
+        logger.debug('RESPONSE {}'.format(clean))
 
-        try:
-            logger.debug('Caching data to {}'.format(cache_path))
-            with open(cache_path, 'w') as cache:
-                cache.write(clean)
+        if cache_path is not None:
 
-        except Exception as e:
-            logger.critical('Enable to write cache file: {}'.format(e))
-            exit(1)
+            try:
+                logger.debug('Caching data to {}'.format(cache_path))
+                with open(cache_path, 'w') as cache:
+                    cache.write(clean)
+
+            except Exception as e:
+                logger.error('Unable to write cache file: {}'.format(e))
         
-        status = response.status_code
-        if (status != 200):
-            logger.critical('{} responded with status code {}'.format(url, status))
-            exit(1)
+            status = response.status_code
+            if (status != 200):
+                logger.error('{} responded with status code {}'.format(url, status))
+                return None
 
-    # use local cache
+    # use cache
     else:
-        try:
-            logger.debug('Loading cached data from {}'.format(cache_path))
-            with open(cache_path) as cache:
-                html = cache.read()
-        except:
-            logger.critical('Unable to read cache {}'.format(cache_path))
-            exit(1)
+        if cache_path is None:
+            logger.error('URL get failed: networking disabled and cache unavailable')
+            return None
+        else:
+            try:
+                logger.debug('Loading cached data from {}'.format(cache_path))
+                with open(cache_path) as cache:
+                    html = cache.read()
+            except:
+                logger.error('Unable to read cache {}'.format(cache_path))
+                return None
             
     return html
 
 
-# confirm transaction
-def confirm_tx(tid):
-
-    btc_price = get_bitcoin_price()
-    dbconn = dbopen()
-    dbcursor = dbconn.cursor()
-
-    # mark confirmed
-    s  = ' UPDATE transactions SET '
-    s += ' status = "confirmed", '
-    s += ' ended = now() '
-    s += ' WHERE id = {}'.format(tid)
-    sql(dbcursor, s)
-    dbconn.commit()
-
-    # get amount and currency name
-    s  = ' SELECT (transactions.units * currencies.price_usd), '
-    s += '        currencies.symbol, currencies.fullname '
-    s += ' FROM transactions, currencies '
-    s += ' WHERE transactions.symbol = currencies.symbol '
-    s += ' AND transactions.id = {} '.format(tid)
-    sql(dbcursor, s)
-    f = dbcursor.fetchone()
-    usd = float(f[0])
-    symbol = str(f[1])
-    name = str(f[2])
- 
-    # report transaction done
-    btc = usd / btc_price
-    if (symbol == 'BTC'):
-        announcer.info('transferred {:,.2f} mBTC ${:,.2f} USD to cold storage'.format(1000.0*btc, usd))
-    else:
-        shortname = name.split()[0]
-        announcer.info('converted {:,.2f} mBTC ${:,.2f} USD to {} #{}'.format(1000.0*btc, usd, symbol, shortname))
-
-    dbcursor.close()
-    dbconn.close()
-
-
-# return current balance for address in satoshis
-def get_raw_balance(address):
+# return current balance for address in satoshis or None
+def get_balance(address):
 
     request = '{}/addr/{}/balance'.format(config['api-url'], address)
     balance = url_get(request)
@@ -170,14 +139,14 @@ def get_raw_balance(address):
     try:
         balance = int(balance)
     except:
-        logger.critical('Couldn\'t convert {} to integer'.format(balance))
-        exit(1)
+        logger.error('Couldn\'t convert {} to integer'.format(balance))
+        return None
 
-    logger.debug('Address {} has a raw balance of {:,.0f}'.format(address, balance))
+    logger.debug('Address {} has a balance of {:,.8f} BTC'.format(address, (balance/1e8)))
     return balance
 
 
-# broadcast a transaction to the Bitcoin network, return tx ID or None
+# broadcast a transaction to the Bitcoin network, return TXID or None
 def broadcast(tx_hex):
 
     url = '{}/tx/send'.format(config['api-url'])
@@ -188,9 +157,12 @@ def broadcast(tx_hex):
         logger.info('Skipping pushtx because network disabled')
         return None
 
+    logger.debug('POST {}'.format(url))
+    logger.debug('PAYLOAD {}'.format(payload))
     response = requests.post(url, data=payload)
     html = response.text.strip()
-    logger.debug('{} response: {}'.format(url, html))
+    clean = filter(lambda x: x in string.printable, html)
+    logger.debug('RESPONSE {}'.format(clean))
 
     status = response.status_code
     if (status != 200):
@@ -202,45 +174,41 @@ def broadcast(tx_hex):
         tid = j['txid']
 
     except:
-        logger.critical('Couldn\'t parse transaction JSON data {} '.format(html))
-        exit(1)
+        logger.error('Couldn\'t parse transaction JSON data {} '.format(html))
+        return None
 
     return tid
 
-
+# return latest BTC price in USD or None
 def get_bitcoin_price():
 
-    # parse response
     html = url_get('{}/currency'.format(config['api-url']))
     try:
         quote = json.loads(html)
 
     except:
-        logger.critical('Couldn\'t parse JSON: {}'.format(html))
-        exit(1)
+        logger.error('Couldn\'t parse JSON: {}'.format(html))
+        return None
 
     try:
         price = float(quote['data']['bitstamp'])
 
     except Exception as e:
         except_name = type(e).__name__
-        logger.critical('{} {}'.format(except_name, e))
-        exit(1)
+        logger.error('{} {}'.format(except_name, e))
+        return None
 
-    # todo: handle various statuses in response 
+    # todo: handle various statuses in response e.g.
     # {
-    #   "status": 200,
-    #   "data": {
-    #     "bitstamp": 691.93
-    #     }
+    #   "status": 438,
+    #   "error": "Too many requests"
     #   }
 
     logger.info('Latest bitcoin price is ${:,.2f}'.format(price))
     return price
 
 
-
-# returns confirmed UTXOs for an address
+# returns confirmed UTXOs for an address or None
 def get_unspent(address):
 
     result = []
@@ -250,12 +218,10 @@ def get_unspent(address):
     try:
         utxo = json.loads(html)
     except:
-        logger.critical('Couldn\'t parse transaction JSON data {} '.format(html))
-        exit(1)
+        logger.error('Couldn\'t parse transaction JSON data {} '.format(html))
+        return None
 
-    # try:
-
-    if True:
+    try:
         for tx in utxo:
             txinfo = {}
 
@@ -265,7 +231,7 @@ def get_unspent(address):
             amount = int(tx['satoshis'])
 
             if (confs < config['min-confirmations']):
-                logger.debug('Ignoring UTXO {} on address {} ({} confirmation{})'.format(txid, address, confs, pluralize(confs)))
+                logger.warning('Ignoring UTXO {} on address {} (only {} confirmation{})'.format(txid, address, confs, pluralize(confs)))
                 continue
 
             txinfo['id'] = txid
@@ -273,119 +239,15 @@ def get_unspent(address):
             txinfo['amount'] = amount
             result.append(txinfo)
 
-#    except:
-#        logger.critical('Couldn\'t parse UTXO attributes: {}'.format(tx))
-#        exit(1)
+    except:
+        logger.error('Couldn\'t parse UTXO attributes: {}'.format(tx))
+        return None
 
     return result
 
 
-"""Validate bitcoin/altcoin addresses
-Copied from:
-http://rosettacode.org/wiki/Bitcoin/address_validation#Python
-"""
+def pluralize(amount):
+    return '' if (amount == 1) else 's'
 
-import string
-from hashlib import sha256
 
-digits58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 
-def _bytes_to_long(bytestring, byteorder):
-    """Convert a bytestring to a long
-
-    For use in python version prior to 3.2
-    """
-    result = []
-    if byteorder == 'little':
-        result = (v << i * 8 for (i, v) in enumerate(bytestring))
-    else:
-        result = (v << i * 8 for (i, v) in enumerate(reversed(bytestring)))
-    return sum(result)
-
-def _long_to_bytes(n, length, byteorder):
-    """Convert a long to a bytestring
-
-    For use in python version prior to 3.2
-    Source:
-    http://bugs.python.org/issue16580#msg177208
-    """
-    if byteorder == 'little':
-        indexes = range(length)
-    else:
-        indexes = reversed(range(length))
-    return bytearray((n >> i * 8) & 0xff for i in indexes)
-
-def decode_base58(bitcoin_address, length):
-    """Decode a base58 encoded address
-
-    This form of base58 decoding is bitcoind specific. Be careful outside of
-    bitcoind context.
-    """
-    n = 0
-    for char in bitcoin_address:
-        try:
-            n = n * 58 + digits58.index(char)
-        except:
-            msg = u"Character not part of Bitcoin's base58: '%s'"
-            raise ValueError(msg % (char,))
-    try:
-        return n.to_bytes(length, 'big')
-    except AttributeError:
-        # Python version < 3.2
-        return _long_to_bytes(n, length, 'big')
-
-def encode_base58(bytestring):
-    """Encode a bytestring to a base58 encoded string
-    """
-    # Count zero's
-    zeros = 0
-    for i in range(len(bytestring)):
-        if bytestring[i] == 0:
-            zeros += 1
-        else:
-            break
-    try:
-        n = int.from_bytes(bytestring, 'big')
-    except AttributeError:
-        # Python version < 3.2
-        n = _bytes_to_long(bytestring, 'big')
-    result = ''
-    (n, rest) = divmod(n, 58)
-    while n or rest:
-        result += digits58[rest]
-        (n, rest) = divmod(n, 58)
-    return zeros * '1' + result[::-1]  # reverse string
-
-def validate(bitcoin_address, magicbyte=0):
-    """Check the integrity of a bitcoin address
-
-    Returns False if the address is invalid.
-    >>> validate('1AGNa15ZQXAZUgFiqJ2i7Z2DPU2J6hW62i')
-    True
-    >>> validate('')
-    False
-    """
-    if isinstance(magicbyte, int):
-        magicbyte = (magicbyte,)
-    clen = len(bitcoin_address)
-    if clen < 27 or clen > 35: # XXX or 34?
-        return False
-    allowed_first = tuple(string.digits)
-    try:
-        bcbytes = decode_base58(bitcoin_address, 25)
-    except ValueError:
-        return False
-    # Check magic byte (for other altcoins, fix by Frederico Reiven)
-    for mb in magicbyte:
-        if bcbytes.startswith(chr(int(mb))):
-            break
-    else:
-        return False
-    # Compare checksum
-    checksum = sha256(sha256(bcbytes[:-4]).digest()).digest()[:4]
-    if bcbytes[-4:] != checksum:
-        return False
-    # Encoded bytestring should be equal to the original address,
-    # for example '14oLvT2' has a valid checksum, but is not a valid btc
-    # address
-    return bitcoin_address == encode_base58(bcbytes)

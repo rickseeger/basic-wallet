@@ -22,6 +22,9 @@ def main():
 
 
     price = get_bitcoin_price()
+    if price is None:
+        logger.critical('Could not obtain latest BTC price')
+        exit(1)
 
     if args['USD'] is None:
         sys.stdout.write('${:,.2f} = 1 BTC\n'.format(price))
