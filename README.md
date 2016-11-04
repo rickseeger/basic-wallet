@@ -4,14 +4,12 @@
 ```
 $ git clone https://github.com/rickseeger/basic-wallet.git
 $ cd basic-wallet
-$ cp sample-basic-wallet.conf basic-wallet.conf
+$ cp sample-basic-wallet.conf ~/.basic-wallet.conf
+$ chmod 600 ~/basic-wallet.conf
 ```
 
-Edit `basic-wallet.conf` as necessary. This file contains private keys, make sure it is secure. At least:
+Edit `basic-wallet.conf` as necessary. It contains private keys so make sure it is secure.
 
-```
-$ chmod 600 basic-wallet.conf
-```
 
 ## Run tests
 

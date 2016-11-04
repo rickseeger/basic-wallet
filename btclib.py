@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 # load config
 config = None
-config_file = os.path.expanduser('./basic-wallet.conf')
+config_file = os.path.expanduser('~/.basic-wallet.conf')
 try:
     with open(config_file, 'r') as stream:
         config = yaml.load(stream)
