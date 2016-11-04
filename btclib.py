@@ -3,8 +3,8 @@
 import os, yaml, logging, requests, string, json, re
 
 
-# logging
-logging.basicConfig(format='%(asctime)-15s %(levelname)s %(message)s', level=logging.DEBUG)
+# logger
+logging.basicConfig(format='%(asctime)-15s %(levelname)s %(message)s')
 logger = logging.getLogger(__name__)
 
 
@@ -23,11 +23,47 @@ def pluralize(amount):
     return '' if (amount == 1) else 's'
 
 
+# retrieve and validate all wallet addresses
+def get_wallet():
+    n = 0
+    wallet = []
+
+    for item in config['wallet']:
+        n += 1
+        try:
+            name = item['name']
+            address = item['address']
+            privkey = item['privkey']
+
+        except KeyError:
+            logger.warning('Wallet address #{} is misconfigured'.format(n))
+            continue
+
+        if not validate(address):
+            logger.critical('{} address {} is not a valid Bitcoin address'.format(name, address))
+            continue
+
+        wallet.append( {'name' : name, 'address' : address, 'privkey' : privkey } )
+
+    return wallet
+
+
+# find a wallet address by substring match
+def lookup(search_string):
+    wallet = get_wallet()
+    for item in wallet:
+        # return first match
+        if search_string.lower() in item['name'].lower() or \
+           search_string.lower() in item['address'].lower():
+            return item
+    return None
+
+
 # convert URL to a unique local filesystem path
 def get_cache_path(url):
 
-    if not os.path.exists(config['cache_dir']):
-        os.makedirs(config['cache_dir'])
+    if not os.path.exists(config['cache-dir']):
+        os.makedirs(config['cache-dir'])
 
     match = re.match('^(.*:)//([A-Za-z0-9\-\.]+)(:[0-9]+)?(.*)$', url)
     if (match is None):
@@ -38,7 +74,7 @@ def get_cache_path(url):
     cache_file = g[1] + '-' + g[3]
     cache_file = re.sub('[=?/.]', '-', cache_file)
     cache_file = re.sub('-+', '-', cache_file)
-    cache_path = config['cache_dir'] + '/' + cache_file
+    cache_path = config['cache-dir'] + '/' + cache_file
 
     return cache_path
 
@@ -48,7 +84,7 @@ def url_get(url):
     html = None
     cache_path = get_cache_path(url)
 
-    if (config['networking_enabled']):
+    if (config['networking-enabled']):
         try:
             response = requests.get(url)
         except requests.exceptions.RequestException as e:
@@ -128,7 +164,7 @@ def confirm_tx(tid):
 # return current balance for address in satoshis
 def get_raw_balance(address):
 
-    request = '{}/addr/{}/balance'.format(config['api_url'], address)
+    request = '{}/addr/{}/balance'.format(config['api-url'], address)
     balance = url_get(request)
 
     try:
@@ -141,16 +177,16 @@ def get_raw_balance(address):
     return balance
 
 
-# broadcast a transaction to the Bitcoin network
+# broadcast a transaction to the Bitcoin network, return tx ID or None
 def broadcast(tx_hex):
 
-    url = '{}/tx/send'.format(api_url)
+    url = '{}/tx/send'.format(config['api-url'])
     payload = { 'rawtx' : tx_hex }
     logger.debug('{}  request: {}'.format(url, str(payload)))
 
-    if (not networking_enabled):
+    if (not config['networking-enabled']):
         logger.info('Skipping pushtx because network disabled')
-        return False
+        return None
 
     response = requests.post(url, data=payload)
     html = response.text.strip()
@@ -159,7 +195,7 @@ def broadcast(tx_hex):
     status = response.status_code
     if (status != 200):
         logger.error('{} responded with status code {}'.format(url, status))
-        return False
+        return None
 
     try:
         j = json.loads(html)
@@ -175,7 +211,7 @@ def broadcast(tx_hex):
 def get_bitcoin_price():
 
     # parse response
-    html = url_get('{}/currency'.format(config['api_url']))
+    html = url_get('{}/currency'.format(config['api-url']))
     try:
         quote = json.loads(html)
 
@@ -208,7 +244,7 @@ def get_bitcoin_price():
 def get_unspent(address):
 
     result = []
-    url = '{}/addr/{}/utxo'.format(api_url, address)
+    url = '{}/addr/{}/utxo'.format(config['api-url'], address)
     html = url_get(url)
 
     try:
@@ -217,7 +253,9 @@ def get_unspent(address):
         logger.critical('Couldn\'t parse transaction JSON data {} '.format(html))
         exit(1)
 
-    try:
+    # try:
+
+    if True:
         for tx in utxo:
             txinfo = {}
 
@@ -226,7 +264,7 @@ def get_unspent(address):
             confs = int(tx['confirmations'])
             amount = int(tx['satoshis'])
 
-            if (confs < min_confirmations):
+            if (confs < config['min-confirmations']):
                 logger.debug('Ignoring UTXO {} on address {} ({} confirmation{})'.format(txid, address, confs, pluralize(confs)))
                 continue
 
@@ -235,9 +273,9 @@ def get_unspent(address):
             txinfo['amount'] = amount
             result.append(txinfo)
 
-    except:
-        logger.critical('Couldn\'t parse UTXO attributes: {}'.format(tx))
-        exit(1)
+#    except:
+#        logger.critical('Couldn\'t parse UTXO attributes: {}'.format(tx))
+#        exit(1)
 
     return result
 

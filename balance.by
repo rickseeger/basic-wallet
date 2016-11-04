@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
-# Fetches current balances for all wallet addresses
+# Fetches balance for a single address or entire wallet
 
-import sys, logging, argparse
-from btclib import config, logger, get_raw_balance, get_bitcoin_price
+import sys, argparse, logging
+from btclib import config, logger, get_raw_balance, get_bitcoin_price, get_wallet, lookup
 
 
 def main():
@@ -11,6 +11,7 @@ def main():
     # parse arguments
     parser = argparse.ArgumentParser(description='Displays Bitcoin balances')
     parser.add_argument('-a', '--showall', help='show zero balances', action='store_true', required=False)
+    parser.add_argument('-s', '--search', help='show balance for single address', nargs=1, required=False)
     parser.add_argument('-v', '--verbose', help='show verbose output', action='store_true', required=False)
     args = vars(parser.parse_args())
 
@@ -18,30 +19,39 @@ def main():
         logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.WARNING)
-    
 
-    # report formatting
-    fmt = '%-24s %-40s %12s %12s'
+
+    # report column format
+    fmt = '%-32s %-40s %12s %12s'
     rpt = '\n' + fmt % ('Name', 'Address', 'BTC','USD') + '\n\n'
-
 
     # fetch balances
     total = 0.0
     btc = get_bitcoin_price()
+    single_address = None
+    entries = []
 
-    i = 0
-    for address in config['wallet']:
-        i += 1
+    # all balances
+    if args['search'] is None:
+        single_address = False
+        entries = get_wallet()
 
-        try:
-            name = address['name']
-            addr = address['address']
-            pkey = address['privkey']
-
-        except KeyError:
-            logger.critical('Could not parse wallet address #{}, check config file'.format(i))
+    # single balance
+    else:
+        single_address = True
+        found = lookup(args['search'][0])
+        if found is None:
+            logger.error('No address found matching "{}"'.format(source))
             exit(1)
-    
+        else:
+            entries = [ found ]
+
+    # create report
+    for item in entries:
+
+        name = item['name']
+        addr = item['address']
+
         bal = float(get_raw_balance(addr)) / 1e8
         total += bal
         bal_disp = '{:,.8f}'.format(bal)
@@ -50,12 +60,15 @@ def main():
         if (bal > 0) or args['showall']:
             rpt += fmt % (name, addr, bal_disp, usd_disp) + '\n'
 
-    total_disp = '{:,.8f}'.format(total)
-    usd_total_disp = '{:,.2f}'.format(total*btc)
-    rpt += '\n' + fmt % ('', 'Total', total_disp, usd_total_disp) + '\n\n'
+    # totals
+    if not single_address:
+        total_disp = '{:,.8f}'.format(total)
+        usd_total_disp = '{:,.2f}'.format(total*btc)
+        rpt += '\n' + fmt % ('', 'Total', total_disp, usd_total_disp) + '\n'
 
+    rpt += '\n'
     sys.stdout.write(rpt)
 
 
 if __name__ == "__main__":
-        main()
+    main()
