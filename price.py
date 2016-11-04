@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
+
 # Retrieve the latest Bitcoin price and optionally convert a US dollar
 # amount to a BTC amount.
+
 
 import sys, argparse, logging
 from btclib import logger, get_bitcoin_price

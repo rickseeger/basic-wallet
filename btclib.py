@@ -1,7 +1,7 @@
 
 
 import os, yaml, logging, requests, string, json, re
-from rosetta import validate
+from validate import validate_address
 
 # logger
 logging.basicConfig(format='%(asctime)-15s %(levelname)s %(message)s')
@@ -35,7 +35,7 @@ def get_wallet():
             logger.error('Wallet address #{} is misconfigured'.format(n))
             continue
 
-        if not validate(address):
+        if not validate_address(address):
             logger.error('{} address {} is not a valid Bitcoin address'.format(name, address))
             continue
 
@@ -231,7 +231,7 @@ def get_unspent(address):
             amount = int(tx['satoshis'])
 
             if (confs < config['min-confirmations']):
-                logger.warning('Ignoring UTXO {} on address {} (only {} confirmation{})'.format(txid, address, confs, pluralize(confs)))
+                logger.warning('Ignoring UTXO on address {} ({} confirmation{})'.format(address, confs, pluralize(confs)))
                 continue
 
             txinfo['id'] = txid

@@ -73,13 +73,13 @@ def encode_base58(bytestring):
         (n, rest) = divmod(n, 58)
     return zeros * '1' + result[::-1]  # reverse string
 
-def validate(bitcoin_address, magicbyte=0):
+def validate_address(bitcoin_address, magicbyte=0):
     """Check the integrity of a bitcoin address
 
     Returns False if the address is invalid.
-    >>> validate('1AGNa15ZQXAZUgFiqJ2i7Z2DPU2J6hW62i')
+    >>> validate_address('1AGNa15ZQXAZUgFiqJ2i7Z2DPU2J6hW62i')
     True
-    >>> validate('')
+    >>> validate_address('')
     False
     """
     if isinstance(magicbyte, int):

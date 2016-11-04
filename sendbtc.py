@@ -6,7 +6,7 @@ import logging, argparse, json
 from btclib import config, logger, get_unspent, get_bitcoin_price, lookup
 from btclib import pluralize, broadcast
 from bitcoin import mktx, sign
-from rosetta import validate
+from validate import validate_address
 
 
 # validate miner fee argument
@@ -49,7 +49,7 @@ def main():
         dest = args['to'][0]
         logger.debug('Using destination address {}'.format(dest))
     
-    if not validate(dest):
+    if not validate_address(dest):
         logger.critical('Destination address "{}" is not a valid Bitcoin address'.format(dest))
         exit(1)
 
