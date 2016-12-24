@@ -1,6 +1,5 @@
 
-
-import os, yaml, logging, requests, string, json, re
+import datetime, bsddb, os, yaml, logging, requests, string, json, re, sys
 from validate import validate_address
 
 # logger
@@ -26,13 +25,20 @@ def get_wallet():
 
     for item in config['wallet']:
         n += 1
+        name = None
+        address = None
+        privkey = None
+
         try:
             name = item['name']
             address = item['address']
-            privkey = item['privkey']
+
+            # private key is optional
+            if ('privkey' in item.keys()):
+                privkey = item['privkey']
 
         except KeyError:
-            logger.error('Wallet address #{} is misconfigured'.format(n))
+            logger.error('Wallet address #{} is misconfigured: {}'.format(n, str(item)))
             continue
 
         if not validate_address(address):
@@ -246,8 +252,107 @@ def get_unspent(address):
     return result
 
 
+# returns transactions for an address or None
+def get_transactions(address):
+
+    txsum = {}
+    txdt = {}
+    results = []
+    memos = load_memos()
+
+    # load address names
+    wallet = get_wallet()
+    names = {}
+    for item in wallet:
+        names[item['address']] = item['name']
+
+    # get all tx for this address
+    url = '{}/addr/{}'.format(config['api-url'], address)
+    html = url_get(url)
+    addrinfo = json.loads(html)
+    txs = addrinfo['transactions']
+
+    # fetch details on each
+    for tx in txs:
+        url = '{}/tx/{}'.format(config['api-url'], tx)
+        html = url_get(url)
+        txinfo = json.loads(html)
+        ts = int(txinfo['blocktime'])
+        dt = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
+        id = txinfo['txid']
+
+        confs = txinfo['confirmations']
+        if (confs < config['min-confirmations']):
+            logger.warning('Ignoring TX {} ({} confirmation{})'.format(id, confs, pluralize(confs)))
+            continue
+
+        vins = txinfo['vin']
+        for vin in vins:
+            val = float(vin['value'])
+            addr = vin['addr']
+            if (addr == address):
+                if id in txsum.keys():
+                    txsum[id] -= val
+                else:
+                    txsum[id] = -val
+                    txdt[id] = dt
+
+        vouts = txinfo['vout']
+        for vout in vouts:
+            val = float(vout['value'])
+            addrs = vout['scriptPubKey']['addresses']
+            assert len(addrs) == 1
+            if (addrs[0] == address):
+                if id in txsum.keys():
+                    txsum[id] += val
+                else:
+                    txsum[id] = val
+                    txdt[id] = dt
+
+    for id in sorted(txdt.keys(), key=lambda k: txdt[k]):
+        txt = names[address]
+        if id[:16] in memos.keys():
+            txt = memos[id[:16]]
+        rec = {}
+        rec['id'] = id
+        rec['date'] = txdt[id]
+        rec['amount'] = txsum[id]
+        rec['memo'] = txt
+        results.append(rec)
+
+    return results
+
+
 def pluralize(amount):
     return '' if (amount == 1) else 's'
 
 
+def load_memos():
+    fname = config['memo-file']
+    if not os.path.isfile(fname):
+        logger.warning('creating new memo file {}'.format(fname))
+        save_memos({})
 
+    try:
+        with open(config['memo-file'], 'r') as mfile:
+            memos = json.load(mfile)
+            clipped = {}
+            for k in memos.keys():
+                clipped[k[:16]] = memos[k]
+            logger.debug('loaded {} memo{} from {}'.format(len(memos), pluralize(len(memos)), fname))
+            return clipped
+    except:
+        logger.critical('Unable to parse memo file: {}'.format(config['memo-file']))
+        exit(1)
+
+
+def save_memos(memos):
+    fname = config['memo-file']
+    try:
+        with open(fname, 'w') as mfile:
+            mfile.write(json.dumps(memos, indent=4))
+            logger.debug('saved {} memo{} to {}'.format(len(memos), pluralize(len(memos)), fname))
+
+    except:
+        logger.critical('Unable to parse config file: {}'.format(fname))
+        exit(1)

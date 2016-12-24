@@ -46,19 +46,26 @@ def main():
         else:
             entries = [ found ]
 
+
     # create report
     for item in entries:
 
         name = item['name']
         addr = item['address']
 
-        bal = float(get_balance(addr)) / 1e8
-        total += bal
-        bal_disp = '{:,.8f}'.format(bal)
-        usd_disp = '{:,.2f}'.format(bal*btc)
+        # only get balances for addresses you own
+        if (item['privkey'] is not None) or args['showall'] or single_address:
+            satoshi = get_balance(addr)
+            if satoshi is None:
+                logger.critical('unable to fetch balances')
+                exit(1)
+            bal = float(satoshi) / 1e8
+            total += bal
+            bal_disp = '{:,.8f}'.format(bal)
+            usd_disp = '{:,.2f}'.format(bal*btc)
 
-        if (bal > 0) or args['showall'] or single_address:
-            rpt += fmt % (name, addr, bal_disp, usd_disp) + '\n'
+            if (bal > 0) or args['showall'] or single_address:
+                rpt += fmt % (name, addr, bal_disp, usd_disp) + '\n'
 
     # totals
     if not single_address:

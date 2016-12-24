@@ -50,8 +50,7 @@ def main():
         logger.debug('Using destination address {}'.format(dest))
     
     if not validate_address(dest):
-        logger.critical('Destination address "{}" is not a valid Bitcoin address'.format(dest))
-        exit(1)
+        logger.warning('Destination address "{}" is not a valid Bitcoin address'.format(dest))
 
 
     # gather UTXOs from inputs
