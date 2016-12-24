@@ -25,24 +25,32 @@ def main():
     else:
         w = get_wallet()
         addrs = [x['address'] for x in w]
+        logger.warning('fetching all transactions on all addresses')
 
     txs = []
     for name in addrs:
         txs.extend(get_transactions(lookup(name)['address']))
+
+    if len(txs) == 0:
+        logger.info('No transactions found')
+        exit(0)
+
+    width = max([len(x['memo']) for x in txs])
+    for rec in txs:
+        rec['memo'] += ' ' * (width - len(rec['memo']))
 
     report = []
     balance = 0.0
     for rec in sorted(txs, key=lambda k : k['date']):
         balance += rec['amount']
         id = rec['id'] if args['verbose'] else rec['id'][:16]
-        line = '%s  %s  %-40s  %+13.8f %+13.8f' % (rec['date'], id, rec['memo'], rec['amount'], balance)
+        line = '%s %s %4s %+13.8f %+13.8f' % (rec['date'], id, rec['memo'], rec['amount'], balance)
         report.append(line)
 
     n = len(report)
     for i in range(n):
         print '%3d' % i, report[n-i-1]
         
-    
 
 if __name__ == "__main__":
     main()

@@ -277,14 +277,15 @@ def get_transactions(address):
         url = '{}/tx/{}'.format(config['api-url'], tx)
         html = url_get(url)
         txinfo = json.loads(html)
-        ts = int(txinfo['blocktime'])
-        dt = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
-        id = txinfo['txid']
 
+        id = txinfo['txid']
         confs = txinfo['confirmations']
         if (confs < config['min-confirmations']):
             logger.warning('Ignoring TX {} ({} confirmation{})'.format(id, confs, pluralize(confs)))
             continue
+
+        ts = int(txinfo['blocktime'])
+        dt = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
 
         vins = txinfo['vin']
         for vin in vins:
