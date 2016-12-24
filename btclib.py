@@ -328,13 +328,13 @@ def pluralize(amount):
 
 
 def load_memos():
-    fname = config['memo-file']
+    fname = os.path.expanduser(config['memo-file'])
     if not os.path.isfile(fname):
         logger.warning('creating new memo file {}'.format(fname))
         save_memos({})
 
     try:
-        with open(config['memo-file'], 'r') as mfile:
+        with open(fname, 'r') as mfile:
             memos = json.load(mfile)
             clipped = {}
             for k in memos.keys():
@@ -342,17 +342,17 @@ def load_memos():
             logger.debug('loaded {} memo{} from {}'.format(len(memos), pluralize(len(memos)), fname))
             return clipped
     except:
-        logger.critical('Unable to parse memo file: {}'.format(config['memo-file']))
+        logger.critical('Unable to parse memo file {}'.format(fname))
         exit(1)
 
 
 def save_memos(memos):
-    fname = config['memo-file']
+    fname = os.path.expanduser(config['memo-file'])
     try:
         with open(fname, 'w') as mfile:
             mfile.write(json.dumps(memos, indent=4))
             logger.debug('saved {} memo{} to {}'.format(len(memos), pluralize(len(memos)), fname))
 
     except:
-        logger.critical('Unable to parse config file: {}'.format(fname))
+        logger.critical('Unable to save memo file {} DUMP {}'.format(fname, memos))
         exit(1)
