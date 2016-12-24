@@ -2,9 +2,8 @@
 
 # Fetches balance for a single address or entire wallet
 
-import sys, argparse, logging
-from btclib import config, logger, get_balance, get_bitcoin_price, get_wallet, lookup
-from btclib import load_memos, save_memos
+import argparse, logging
+from btclib import logger, load_memos, save_memos
 
 
 def main():
