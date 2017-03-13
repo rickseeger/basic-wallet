@@ -10,12 +10,8 @@ logger = logging.getLogger(__name__)
 # load config
 config = None
 config_file = os.path.expanduser('~/.basic-wallet.conf')
-try:
-    with open(config_file, 'r') as stream:
-        config = yaml.load(stream)
-except:
-    logger.critical('Unable to open config file: {}'.format(config_file))
-    exit(1)
+with open(config_file, 'r') as stream:
+    config = yaml.load(stream)
 
 
 # retrieve and validate all wallet addresses
@@ -141,7 +137,6 @@ def get_balance(address):
 
     request = '{}/addr/{}/balance'.format(config['api-url'], address)
     balance = url_get(request)
-
     try:
         balance = int(balance)
     except:

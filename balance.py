@@ -11,7 +11,7 @@ def main():
     # parse arguments
     parser = argparse.ArgumentParser(description='Displays Bitcoin balances')
     parser.add_argument('-a', '--showall', help='show zero balances', action='store_true', required=False)
-    parser.add_argument('-s', '--search', help='show balance for single address', nargs=1, required=False)
+    parser.add_argument('-f', '--from', help='get balances from just these addresses', nargs='+', required=False)
     parser.add_argument('-v', '--verbose', help='show verbose output', action='store_true', required=False)
     args = vars(parser.parse_args())
 
@@ -23,7 +23,7 @@ def main():
 
     # report column format
     fmt = '%-32s %-40s %12s %12s'
-    rpt = '\n' + fmt % ('Name', 'Address', 'BTC','USD') + '\n'
+    rpt = '\n' + fmt % ('Name', 'Address', 'BTC','USD') + '\n\n'
 
     # fetch balances
     total = 0.0
@@ -32,16 +32,16 @@ def main():
     entries = []
 
     # all balances
-    if args['search'] is None:
+    if args['from'] is None:
         single_address = False
         entries = get_wallet()
 
     # single balance
     else:
         single_address = True
-        found = lookup(args['search'][0])
+        found = lookup(args['from'][0])
         if found is None:
-            logger.error('No address found matching "{}"'.format(args['search'][0]))
+            logger.error('No address found matching "{}"'.format(args['from'][0]))
             exit(1)
         else:
             entries = [ found ]
