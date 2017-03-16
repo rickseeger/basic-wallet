@@ -83,12 +83,12 @@ def get_cache_path(url):
 
 
 # return the response from a URL get or None
-def url_get(url):
+def url_get(url, use_cache=False):
 
     html = None
     cache_path = get_cache_path(url)
 
-    if (config['networking-enabled']):
+    if (config['networking-enabled']) and (use_cache==False):
         try:
             logger.debug('GET {}'.format(url))
             response = requests.get(url)
@@ -133,10 +133,10 @@ def url_get(url):
 
 
 # return current balance for address in satoshis or None
-def get_balance(address):
+def get_balance(address, use_cache=False):
 
     request = '{}/addr/{}/balance'.format(config['api-url'], address)
-    balance = url_get(request)
+    balance = url_get(request, use_cache)
     try:
         balance = int(balance)
     except:

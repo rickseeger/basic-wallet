@@ -13,13 +13,13 @@ def main():
     parser.add_argument('-a', '--showall', help='show zero balances', action='store_true', required=False)
     parser.add_argument('-f', '--from', help='get balances from just these addresses', nargs='+', required=False)
     parser.add_argument('-v', '--verbose', help='show verbose output', action='store_true', required=False)
+    parser.add_argument('-c', '--cache', help='use cached data only', action='store_true', required=False)
     args = vars(parser.parse_args())
 
     if (args['verbose']):
         logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.WARNING)
-
 
     # report column format
     fmt = '%-32s %-40s %12s %12s'
@@ -55,7 +55,7 @@ def main():
 
         # only get balances for addresses you own
         if (item['privkey'] is not None) or args['showall'] or single_address:
-            satoshi = get_balance(addr)
+            satoshi = get_balance(addr, args['cache'])
             if satoshi is None:
                 logger.critical('unable to fetch balances')
                 exit(1)
