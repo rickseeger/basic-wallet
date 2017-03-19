@@ -94,19 +94,19 @@ class TestCache(unittest.TestCase):
         config['api-url'] = 'http://crypdex.io:3001/insight-api'
         config['networking-enabled'] = True
         config['cache-dir'] = None
-        address = '12c6DSiU4Rq3P4ZxziKxzrL5LmMBrzjrJX'
-        url = '{}/addr/{}/utxo'.format(config['api-url'], address)
+        sentinel = '1PiNGDYSiV939f5GDwA7QJix1NZRgviP2H'
+        url = '{}/addr/{}/utxo'.format(config['api-url'], sentinel)
         html = url_get(url)
         utxos = json.loads(html)
-        self.assertEqual(len(utxos), 46)
+        self.assertEqual(len(utxos), 1)
         
     def test_url_get_with_network_off_cache_off(self):
         global config
         config['api-url'] = 'http://crypdex.io:3001/insight-api'
         config['networking-enabled'] = False
         config['cache-dir'] = None
-        address = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'
-        url = '{}/addr/{}/balance'.format(config['api-url'], address)
+        sentinel = '1PiNGDYSiV939f5GDwA7QJix1NZRgviP2H'
+        url = '{}/addr/{}/balance'.format(config['api-url'], sentinel)
         html = url_get(url)
         self.assertIsNone(html, 'url_get() should return None when network and cache are both disabled')
 
@@ -116,11 +116,11 @@ class TestCache(unittest.TestCase):
         config['api-url'] = 'http://crypdex.io:3001/insight-api'
         config['networking-enabled'] = True
         config['cache-dir'] = '/tmp/basic-wallet-test-cache/'
-        address = '1HYst1bm6SqHLbJpg8N7HP2PXSadTdFWZ4'
-        url = '{}/addr/{}/balance'.format(config['api-url'], address)
+        sentinel = '1PiNGDYSiV939f5GDwA7QJix1NZRgviP2H'
+        url = '{}/addr/{}/balance'.format(config['api-url'], sentinel)
 
         satoshi = int(url_get(url))
-        self.assertEqual(satoshi, 78851581)
+        self.assertEqual(satoshi, 123456)
 
         # verify directory was created
         self.assertTrue(os.path.isdir(config['cache-dir']))
@@ -135,9 +135,10 @@ class TestCache(unittest.TestCase):
         config['api-url'] = 'http://crypdex.io:3001/insight-api'
         config['cache-dir'] = '/tmp/basic-wallet-test-cache/'
 
-        address = '3Nxwenay9Z8Lc9JBiywExpnEFiLp6Afp8v'
-        url = '{}/addr/{}/balance'.format(config['api-url'], address)
-        balance = 13495582116855
+        sentinel = '1PiNGDYSiV939f5GDwA7QJix1NZRgviP2H'
+
+        url = '{}/addr/{}/balance'.format(config['api-url'], sentinel)
+        balance = 123456
         
         # create cache file
         config['networking-enabled'] = True

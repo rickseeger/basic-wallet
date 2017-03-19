@@ -103,7 +103,7 @@ def url_get(url, use_cache=False):
         if cache_path is not None:
 
             try:
-                logger.debug('Caching data to {}'.format(cache_path))
+                logger.debug('CACHING data to {}'.format(cache_path))
                 with open(cache_path, 'w') as cache:
                     cache.write(clean)
 
@@ -352,3 +352,11 @@ def save_memos(memos):
     except:
         logger.critical('Unable to save memo file {} DUMP {}'.format(fname, memos))
         exit(1)
+
+
+# returns latest fast confirmation fee as satoshi/byte
+def bitcoin_fee():
+	url =  'https://bitcoinfees.21.co/api/v1/fees/recommended'
+	response = url_get(url)
+	fees = json.loads(response)
+	return float(fees['fastestFee'])

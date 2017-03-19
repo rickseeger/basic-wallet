@@ -1,15 +1,9 @@
 #!/usr/bin/env python
 
 
-# Fetches best fee for quick confirm
+import json, logging
+from btclib import logger, bitcoin_fee
 
 
-import json
-from btclib import url_get
-
-
-response = url_get('https://bitcoinfees.21.co/api/v1/fees/recommended')
-fees = json.loads(response)
-best = fees['fastestFee']
-
-print best
+logger.setLevel(logging.DEBUG)
+logger.info('fastest fee: {} sat/byte'.format(bitcoin_fee()))

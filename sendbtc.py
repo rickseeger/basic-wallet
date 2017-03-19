@@ -4,7 +4,7 @@
 
 import logging, argparse, json
 from btclib import config, logger, get_unspent, get_bitcoin_price, lookup
-from btclib import pluralize, broadcast
+from btclib import pluralize, broadcast, bitcoin_fee
 from bitcoin import mktx, sign
 from validate import validate_address
 
@@ -24,19 +24,23 @@ def valid_fee(arg):
 
 def main():
 
+    # get current fast confirmation bitcoin fee
+    best_fee = bitcoin_fee()
+
     # command line arguments
     parser = argparse.ArgumentParser(description='Create a Bitcoin transaction')
     parser.add_argument('-f', '--from', help='one of more from addresses', nargs='+', required=True)
     parser.add_argument('-t', '--to', help='address to send to', nargs=1, required=True)
-    parser.add_argument('-m', '--fee', help='miner fee in Satoshis per byte', nargs=1, type=valid_fee, required=False, default=[config['default-satoshi-per-byte-fee']])
+    parser.add_argument('-m', '--fee', help='miner fee in Satoshis per byte', nargs=1, type=valid_fee, required=False, default=[best_fee])
     parser.add_argument('-a', '--amount', help='amount to transfer in BTC', nargs=1, type=float, required=False)
     parser.add_argument('-v', '--verbose', help='show verbose output', action='store_true', required=False)
+    parser.add_argument('-o', '--override', help='override high fee sanity check', action='store_true', required=False)
     args = vars(parser.parse_args())
 
     if (args['verbose']):
         logger.setLevel(logging.DEBUG)
     else:
-        logger.setLevel(logging.WARNING)
+        logger.setLevel(logging.INFO)
 
 
     # substring search for destination address in wallet
@@ -48,7 +52,7 @@ def main():
     else:
         dest = args['to'][0]
         logger.debug('Using destination address {}'.format(dest))
-    
+
     if not validate_address(dest):
         logger.warning('Destination address "{}" is not a valid Bitcoin address'.format(dest))
 
@@ -88,9 +92,8 @@ def main():
     avail_satoshi = sum([tx['value'] for tx in utxos])
     avail_usd = (avail_satoshi / 1e8) * btc_price
     addr_suffix = '' if naddr == 1 else 'es'
-    logger.info('UTXO summary {} address{} {} UTXO{} {:,.0f} Satoshi ${:,.2f} USD'.format(naddr, addr_suffix, nutxos, pluralize(nutxos), avail_satoshi, avail_usd))
-        
-    
+    logger.info('UTXO Summary: {} address{} {} UTXO{} {:,.0f} Satoshi ${:,.2f} USD'.format(naddr, addr_suffix, nutxos, pluralize(nutxos), avail_satoshi, avail_usd))
+
     # build tx
     txins = []
     txouts = []
@@ -108,14 +111,14 @@ def main():
         total = 0
         for utxo in utxos:
             total += utxo['value']
-            logger.info('Input {} UTXO {} Value {:,.0f} Total {:,.0f}'.format(n, utxo['output'], utxo['value'], total))
+            logger.debug('Input {} UTXO {} Value {:,.0f} Total {:,.0f}'.format(n, utxo['output'], utxo['value'], total))
             txins.append(utxo)
             n += 1
 
         # output
         send_satoshi = avail_satoshi - fee
         txouts = [ {'value' : send_satoshi, 'address' : dest } ]
-        logger.info('OUTPUT 0 Address {} Value {:,.0f}'.format(dest, send_satoshi))
+        logger.debug('OUTPUT 0 Address {} Value {:,.0f}'.format(dest, send_satoshi))
 
 
     # transfer specific amount
@@ -156,8 +159,8 @@ def main():
             note = ''
             if (remaining <= total_fees):
                 note = 'after adding miner fees '
-            logger.critical('Insufficient funds {}{:,.0f} > {:,.0f}'.format(note, send_satoshi + total_fees, avail_satoshi))
-            exit(1)
+		logger.critical('Insufficient funds {}{:,.0f} > {:,.0f}'.format(note, send_satoshi + total_fees, avail_satoshi))
+		exit(1)
 
         # outputs
         txouts = [ { 'address' : dest, 'value' : send_satoshi } ]
@@ -171,7 +174,7 @@ def main():
             # leave it for the miner and a take speed bonus.
 
             sweep_utxo_len = config['len-base'] + config['len-per-input'] + config['len-per-output']
-            sweep_utxo_fee = sweep_utxo_len * config['default-satoshi-per-byte-fee']
+            sweep_utxo_fee = sweep_utxo_len * best_fee
             if change < sweep_utxo_fee:
                 change_usd = (change/1e8) * btc_price
                 logger.warning('Trivial UTXO remainder released to miner {:,.0f} Satoshi ${:,.2f} USD'.format(change, change_usd))
@@ -212,8 +215,13 @@ def main():
         exit(1)
 
     if (fee_usd > config['insane-fee-usd']):
-        logger.error('Sanity check failed: miner fee too large ${:,.2f} >= ${:,.2f}'.format(fee_usd, config['insane-fee-usd']))
-        exit(1)
+        msg = 'Sanity check failed: miner fee too large ${:,.2f} >= ${:,.2f}'.format(fee_usd, config['insane-fee-usd'])
+        if args['override']:
+            logger.warning(msg)
+            logger.warning('Overriding sanity check')
+        else:
+            logger.error(msg)
+            exit(1)
 
 
     # sign tx inputs
