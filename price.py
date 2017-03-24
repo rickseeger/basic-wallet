@@ -14,6 +14,7 @@ def main():
     # parse arguments
     parser = argparse.ArgumentParser(description='Fetch latest Bitcoin price')
     parser.add_argument('-u', '--USD', help='convert a USD dollar amount to BTC', nargs=1, type=float, required=False)
+    parser.add_argument('-b', '--BTC', help='convert a BTC amount to USD', nargs=1, type=float, required=False)
     parser.add_argument('-v', '--verbose', help='show verbose output', action='store_true', required=False)
     args = vars(parser.parse_args())
 
@@ -28,13 +29,20 @@ def main():
         logger.critical('Could not obtain latest BTC price')
         exit(1)
 
-    if args['USD'] is None:
-        sys.stdout.write('${:,.2f} = 1 BTC\n'.format(price))
-
-    else:
+    # USD amount specified
+    if args['USD'] is not None:
         usd = args['USD'][0]
         btc = usd / price
         sys.stdout.write('${:,.2f} = {:,.8f} BTC\n'.format(usd, btc))
+
+    # BTC amount specified
+    elif args['BTC'] is not None:
+        btc = args['BTC'][0]
+        usd = btc * price
+        sys.stdout.write('${:,.2f} = {:,.8f} BTC\n'.format(usd, btc))
+
+    else:
+        sys.stdout.write('${:,.2f} = {:,.8f} BTC\n'.format(price, 1.0))
 
 
 if __name__ == "__main__":
