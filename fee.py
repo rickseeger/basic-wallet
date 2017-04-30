@@ -5,6 +5,9 @@ import argparse, logging
 from btclib import logger, bitcoin_fee
 
 
+default_block_target = 2
+
+
 # validate block target argument
 def valid_target(arg):
     try:
@@ -20,7 +23,7 @@ def valid_target(arg):
 
 parser = argparse.ArgumentParser(description='Fetch the latest fast confirmation bitcoin fee')
 parser.add_argument('-v', '--verbose', help='show verbose output', action='store_true', required=False)
-parser.add_argument('-b', '--blocktarget', help='want confirmation in this many blocks', type=valid_target, required=False, default=6)
+parser.add_argument('-b', '--blocktarget', help='want confirmation in this many blocks', type=valid_target, required=False, default=default_block_target)
 args = vars(parser.parse_args())
 
 

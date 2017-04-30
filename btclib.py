@@ -355,7 +355,7 @@ def save_memos(memos):
 
 
 # returns latest fast confirmation fee as satoshi/byte
-def bitcoin_fee(blockTarget=6):
+def bitcoin_fee(blockTarget=2):
 
     # 21.co
 #    url =  'https://bitcoinfees.21.co/api/v1/fees/recommended'
@@ -364,7 +364,7 @@ def bitcoin_fee(blockTarget=6):
 #    return float(fees['fastestFee'])
 
     # bitgo
-    url = 'https://www.bitgo.com/api/v1/tx/fee?numBlocks=6'
+    url = 'https://www.bitgo.com/api/v1/tx/fee?numBlocks={}'.format(blockTarget)
     response = url_get(url)
     fees = json.loads(response)
     targets = fees['feeByBlockTarget']
