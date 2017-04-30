@@ -77,6 +77,7 @@ def main():
 
         # gather UTXOs
         unspent = get_unspent(address)
+        logger.debug('Address {} has {} unspent{}'.format(address, len(unspent), pluralize(len(unspent))))
         for tx in unspent:
             utxo = {}
             utxo['output'] = '{}:{}'.format(tx['id'], tx['vout'])
@@ -92,7 +93,7 @@ def main():
     avail_satoshi = sum([tx['value'] for tx in utxos])
     avail_usd = (avail_satoshi / 1e8) * btc_price
     addr_suffix = '' if naddr == 1 else 'es'
-    logger.info('UTXO Summary: {} address{} {} UTXO{} {:,.0f} Satoshi ${:,.2f} USD'.format(naddr, addr_suffix, nutxos, pluralize(nutxos), avail_satoshi, avail_usd))
+    logger.debug('UTXO Summary: {} address{} {} UTXO{} {:,.0f} Satoshi ${:,.2f} USD'.format(naddr, addr_suffix, nutxos, pluralize(nutxos), avail_satoshi, avail_usd))
 
     # build tx
     txins = []
@@ -125,7 +126,7 @@ def main():
     else:
         change_address = None
         send_satoshi = int(float(args['amount'][0])*1e8)
-        logger.info('transferring {:,.0f} Satoshi'.format(send_satoshi))
+        logger.debug('transferring {:,.0f} Satoshi'.format(send_satoshi))
 
         initial_fee = (config['len-base'] + (config['len-per-output'] * 2)) * fee_per_byte
         remaining = send_satoshi + initial_fee
@@ -145,7 +146,7 @@ def main():
             total_fees += fee_inc
             remaining -= utxo['value']
             total += utxo['value']
-            logger.info('Input {} UTXO {} Value {:,.0f} Total {:,.0f}'.format(n, utxo['output'], utxo['value'], total))
+            logger.debug('Input {} UTXO {} Value {:,.0f} Total {:,.0f}'.format(n, utxo['output'], utxo['value'], total))
             txins.append(utxo)
             n += 1
 
@@ -164,7 +165,7 @@ def main():
 
         # outputs
         txouts = [ { 'address' : dest, 'value' : send_satoshi } ]
-        logger.info('OUTPUT 0 Address {} Value {:,.0f}'.format(dest, send_satoshi))
+        logger.debug('OUTPUT 0 Address {} Value {:,.0f}'.format(dest, send_satoshi))
 
 
         if (change > 0):
@@ -191,7 +192,7 @@ def main():
                 # add extra output
                 else:
                     txouts.append( { 'address' : change_address, 'value' : change } )
-                    logger.info('OUTPUT 1 Address {} Value {:,.0f}'.format(change_address, change))
+                    logger.debug('OUTPUT 1 Address {} Value {:,.0f}'.format(change_address, change))
 
 
     # sanity checks
