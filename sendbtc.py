@@ -78,6 +78,7 @@ def main():
         # gather UTXOs
         unspent = get_unspent(address)
         logger.debug('Address {} has {} unspent{}'.format(address, len(unspent), pluralize(len(unspent))))
+        has_utxos = False
         for tx in unspent:
             utxo = {}
             utxo['output'] = '{}:{}'.format(tx['id'], tx['vout'])
@@ -85,11 +86,20 @@ def main():
             utxo['value'] = tx['amount']
             logger.debug('utxo["value"] = {}'.format(utxo['value']))
             utxos.append(utxo)
+            has_utxos = True
+
+        if not has_utxos:
+            logger.warning('Address {} has no confirmed UTXOs'.format(address))
+
+    # must have at least one UTXO
+    nutxos = len(utxos)
+    if nutxos == 0:
+        logger.error('No confirmed UTXOs found')
+        exit(1)
 
     # report UTXO summary
     btc_price = get_bitcoin_price()
     naddr = len(args['from'])
-    nutxos = len(utxos)
     avail_satoshi = sum([tx['value'] for tx in utxos])
     avail_usd = (avail_satoshi / 1e8) * btc_price
     addr_suffix = '' if naddr == 1 else 'es'
