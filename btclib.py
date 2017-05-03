@@ -48,13 +48,29 @@ def get_wallet():
 
 # find a wallet address by substring match
 def lookup(search_string):
+    hits = []
     wallet = get_wallet()
+
     for item in wallet:
-        # return first match
         if search_string.lower() in item['name'].lower() or \
            search_string.lower() in item['address'].lower():
-            return item
-    return None
+            hits.append(item)
+
+    # there can be only one unique matching address
+    n = len(hits)
+    if n == 0:
+        logger.error('Search string "{}" did not match any wallet entries'.format(search_string))
+        exit(1)
+    elif n == 1:
+        return hits[0]
+    else:
+        count = 1
+        msg = 'Search string "{}" matched multiple addresses:\n'.format(search_string)
+        for hit in hits:
+            msg += '{:2d} {:40s} {:35s}\n'.format(count, hit['name'], hit['address'])
+            count += 1
+        logger.error(msg.strip())
+        exit(1)
 
 
 # convert URL to a unique local filesystem path
