@@ -24,6 +24,7 @@ def get_wallet():
         name = None
         address = None
         privkey = None
+        active = None
 
         try:
             name = item['name']
@@ -33,6 +34,11 @@ def get_wallet():
             if ('privkey' in item.keys()):
                 privkey = item['privkey']
 
+            # active flag is optional
+            active = True
+            if ('active' in item.keys()):
+                active = item['active']
+
         except KeyError:
             logger.error('Wallet address #{} is misconfigured: {}'.format(n, str(item)))
             continue
@@ -41,7 +47,7 @@ def get_wallet():
             logger.error('{} address {} is not a valid Bitcoin address'.format(name, address))
             continue
 
-        wallet.append( {'name' : name, 'address' : address, 'privkey' : privkey } )
+        wallet.append( {'name' : name, 'address' : address, 'privkey' : privkey, 'active' : active } )
 
     return sorted(wallet, key=lambda k: k['name'])
 
@@ -59,8 +65,8 @@ def lookup(search_string):
     # there can be only one unique matching address
     n = len(hits)
     if n == 0:
-        logger.error('Search string "{}" did not match any wallet entries'.format(search_string))
-        exit(1)
+        logger.warning('Search string "{}" did not match any wallet entries'.format(search_string))
+        return None
     elif n == 1:
         return hits[0]
     else:

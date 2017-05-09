@@ -8,7 +8,9 @@ $ cp sample-basic-wallet.conf ~/.basic-wallet.conf
 $ chmod 600 ~/basic-wallet.conf
 ```
 
-Edit `basic-wallet.conf` as necessary. It contains private keys so make sure it is secure.
+Edit `basic-wallet.conf` as necessary. It contains private keys so
+make sure it is secure. Each entry has an name, address, optional
+privkey and optional active flag (default True).
 
 
 ## Run tests
@@ -42,6 +44,7 @@ Fake Example02       1VLTg6joM28eVzpRFd7xodHd55XMJbDYB          0.00000000      
 Fake Example03       1DA3ykQxaQtkUDwJbnoBY5p8CttwDywwBy         0.00000000         0.00
 Genesis Address      1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa        16.53393273    11,422.47
 Satoshi Nakamoto     12c6DSiU4Rq3P4ZxziKxzrL5LmMBrzjrJX         0.04329407        29.91
+
                      Total                                     16.57722680    11,452.38
 
 $ ./balance.py -s example02 -v

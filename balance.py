@@ -10,7 +10,7 @@ def main():
 
     # parse arguments
     parser = argparse.ArgumentParser(description='Displays Bitcoin balances')
-    parser.add_argument('-a', '--showall', help='show zero balances', action='store_true', required=False)
+    parser.add_argument('-a', '--showall', help='show inactive and zero balance addresses', action='store_true', required=False)
     parser.add_argument('-f', '--from', help='get balances from just these addresses', nargs='+', required=False)
     parser.add_argument('-v', '--verbose', help='show verbose output', action='store_true', required=False)
     parser.add_argument('-c', '--cache', help='use cached data only', action='store_true', required=False)
@@ -22,7 +22,7 @@ def main():
         logger.setLevel(logging.WARNING)
 
     # report column format
-    fmt = '%-32s %-40s %12s %12s'
+    fmt = '%-40s %-40s %12s %12s'
     rpt = '\n' + fmt % ('Name', 'Address', 'BTC','USD') + '\n\n'
 
     # fetch balances
@@ -52,9 +52,10 @@ def main():
 
         name = item['name']
         addr = item['address']
+        active = item['active']
 
-        # only get balances for addresses you own
-        if (item['privkey'] is not None) or args['showall'] or single_address:
+        # only get balances for active addresses you own
+        if (item['privkey'] is not None and active) or args['showall'] or single_address:
             satoshi = get_balance(addr, args['cache'])
             if satoshi is None:
                 logger.critical('unable to fetch balances')
