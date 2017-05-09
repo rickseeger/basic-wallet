@@ -32,7 +32,8 @@ def main():
     parser.add_argument('-f', '--from', help='one of more from addresses', nargs='+', required=True)
     parser.add_argument('-t', '--to', help='address to send to', nargs=1, required=True)
     parser.add_argument('-m', '--fee', help='miner fee in Satoshis per byte', nargs=1, type=valid_fee, required=False, default=[best_fee])
-    parser.add_argument('-a', '--amount', help='amount to transfer in BTC', nargs=1, type=float, required=False)
+    parser.add_argument('-b', '--bitcoin', help='amount to transfer in BTC', nargs=1, type=float, required=False)
+    parser.add_argument('-u', '--usd', help='amount to transfer in USD', nargs=1, type=float, required=False)
     parser.add_argument('-v', '--verbose', help='show verbose output', action='store_true', required=False)
     parser.add_argument('-o', '--override', help='override high fee sanity check', action='store_true', required=False)
     args = vars(parser.parse_args())
@@ -41,6 +42,30 @@ def main():
         logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.INFO)
+
+
+    # check which currency
+    sweep = False
+    btc_specified = (args['bitcoin'] is not None)
+    usd_specified = (args['usd'] is not None)
+    amount_satoshi = None
+
+    if not (btc_specified or usd_specified):
+        sweep = True
+        logger.debug('SWEEP all funds')
+    elif (btc_specified and usd_specified):
+        logger.error('Specify the amount in Bitcoin or USD, but not both')
+        exit(1)
+    elif btc_specified:
+        amount_btc = args['bitcoin'][0]
+        amount_satoshi = int(round(amount_btc * 1e8))
+        logger.info('AMOUNT {:,.8f} BTC = {:,.0f} Satoshi'.format(amount_btc, amount_satoshi))
+    elif usd_specified:
+        amount_usd = args['usd'][0]
+        btc_price = get_bitcoin_price()
+        amount_btc = amount_usd / btc_price
+        amount_satoshi = int(round(amount_btc * 1e8))
+        logger.info('AMOUNT {:,.2f} USD = {:,.8f} BTC = {:,.0f} Satoshi'.format(amount_usd, amount_btc, amount_satoshi))
 
 
     # substring search for destination address in wallet
@@ -98,8 +123,8 @@ def main():
         exit(1)
 
     # report UTXO summary
-    btc_price = get_bitcoin_price()
     naddr = len(args['from'])
+    btc_price = get_bitcoin_price()
     avail_satoshi = sum([tx['value'] for tx in utxos])
     avail_usd = (avail_satoshi / 1e8) * btc_price
     addr_suffix = '' if naddr == 1 else 'es'
@@ -112,7 +137,7 @@ def main():
     logger.debug('Using fee of {} satoshis per byte'.format(fee_per_byte))
 
     # sweep all BTC
-    if args['amount'] == None:
+    if sweep:
         logger.warning('Sweeping entire {:,.0f} satoshi from all UTXOs'.format(avail_satoshi))
         est_length = config['len-base'] + (config['len-per-input'] * nutxos) + config['len-per-output']
         fee = est_length * fee_per_byte
@@ -135,7 +160,7 @@ def main():
     # transfer specific amount
     else:
         change_address = None
-        send_satoshi = int(float(args['amount'][0])*1e8)
+        send_satoshi = amount_satoshi
         logger.debug('transferring {:,.0f} Satoshi'.format(send_satoshi))
 
         initial_fee = (config['len-base'] + (config['len-per-output'] * 2)) * fee_per_byte
