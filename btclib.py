@@ -203,9 +203,9 @@ def broadcast(tx_hex):
     return tid
 
 # return latest BTC price in USD or None
-def get_bitcoin_price():
+def get_bitcoin_price(use_cache=False):
 
-    html = url_get('{}/currency'.format(config['api-url']))
+    html = url_get('{}/currency'.format(config['api-url']), use_cache)
     try:
         quote = json.loads(html)
 
