@@ -27,7 +27,7 @@ def main():
 
     # fetch balances
     total = 0.0
-    btc = get_bitcoin_price()
+    btc = get_bitcoin_price(args['cache'])
     single_address = None
     entries = []
 
@@ -41,10 +41,13 @@ def main():
         single_address = True
         found = lookup(args['from'][0])
         if found is None:
-            logger.error('No address found matching "{}"'.format(args['from'][0]))
-            exit(1)
-        else:
-            entries = [ found ]
+            logger.warning('No address found matching "{}"'.format(args['from'][0]))
+            found = {}
+            found['active'] = False
+            found['privkey'] = None
+            found['name'] = 'Address'
+            found['address'] = args['from'][0]
+        entries = [ found ]
 
 
     # create report
