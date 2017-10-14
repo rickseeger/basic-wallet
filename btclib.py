@@ -38,6 +38,8 @@ def get_wallet():
             active = True
             if ('active' in item.keys()):
                 active = item['active']
+                if not active:
+                    continue
 
         except KeyError:
             logger.error('Wallet address #{} is misconfigured: {}'.format(n, str(item)))
