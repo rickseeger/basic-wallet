@@ -34,8 +34,9 @@ def main():
     parser.add_argument('-m', '--fee', help='miner fee in Satoshis per byte', nargs=1, type=valid_fee, required=False, default=[best_fee])
     parser.add_argument('-b', '--bitcoin', help='amount to transfer in BTC', nargs=1, type=float, required=False)
     parser.add_argument('-u', '--usd', help='amount to transfer in USD', nargs=1, type=float, required=False)
-    parser.add_argument('-v', '--verbose', help='show verbose output', action='store_true', required=False)
     parser.add_argument('-o', '--override', help='override high fee sanity check', action='store_true', required=False)
+    parser.add_argument('-e', '--envfriendly', help='spend small UXTO amounts first; results in higher fees, but reduces global UTXO DB size', action='store_true', required=False)
+    parser.add_argument('-v', '--verbose', help='show verbose output', action='store_true', required=False)
     args = vars(parser.parse_args())
 
     if (args['verbose']):
@@ -167,9 +168,14 @@ def main():
         remaining = send_satoshi + initial_fee
         total_fees = initial_fee
 
-        # Environmentally-friendly transfer: help reduce the size of
-        # the mempool by spending smallest UTXOs first
-        ordered_utxos = sorted(utxos, key=lambda k: k['value'])
+        # Environmentally-friendly transfer spends smallest UTXOs
+        # first. This reduces the size of UTXO database each full-node
+        # must store, but results in a higher fee.
+        reverse = True
+        if args['envfriendly']:
+            logger.warning('environmentally friendly mode active, higher fees apply')
+            reverse = False
+        ordered_utxos = sorted(utxos, key=lambda k: k['value'], reverse=reverse)
 
         # inputs
         n = 0
