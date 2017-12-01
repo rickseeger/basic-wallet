@@ -43,12 +43,11 @@ def main():
         if found is None:
             logger.warning('No address found matching "{}"'.format(args['from'][0]))
             found = {}
-            found['active'] = False
+            found['active'] = True
             found['privkey'] = None
             found['name'] = 'Address'
             found['address'] = args['from'][0]
         entries = [ found ]
-
 
     # create report
     for item in entries:

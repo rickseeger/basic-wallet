@@ -46,8 +46,7 @@ def get_wallet():
             continue
 
         if not validate_address(address):
-            logger.error('{} address {} is not a valid Bitcoin address'.format(name, address))
-            continue
+            logger.warning('{} address {} is not a valid Bitcoin address'.format(name, address))
 
         wallet.append( {'name' : name, 'address' : address, 'privkey' : privkey, 'active' : active } )
 
@@ -63,6 +62,7 @@ def lookup(search_string):
         if search_string.lower() in item['name'].lower() or \
            search_string.lower() in item['address'].lower():
             hits.append(item)
+            logger.debug('search string "{}" matched wallet entry: {}'.format(search_string.upper(), item))
 
     # there can be only one unique matching address
     n = len(hits)
