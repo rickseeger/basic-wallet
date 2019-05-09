@@ -22,11 +22,11 @@ class TestAddressValidation(unittest.TestCase):
                           '9268FM3VGLR7uvbFEesydGYtCPmc1uDcpx',
                           '1J9MSBD4z62M2u654XzwavTgtaKdUbigGB'
                           ]
-    
+
     def test_valid_bitcoin_adresses(self):
         for address in self.valid_addresses:
             self.assertTrue(validate_address(address), 'False negative')
- 
+
     def test_invalid_bitcoin_addresses(self):
         for address in self.invalid_addresses:
             self.assertFalse(validate_address(address), 'False positive')
@@ -73,10 +73,10 @@ class TestAddressLookup(unittest.TestCase):
 
         item = lookup('1LrcWfoypPW8paysq3ruY44Jhe1WgLVZ8Q')
         self.assertEqual(item['name'], 'gamma', 'search by exact address failed')
-        
+
 
 class TestCache(unittest.TestCase):
-    
+
     def test_get_cache_path(self):
         global config
         config['cache-dir'] = '/tmp/cache'
@@ -99,7 +99,7 @@ class TestCache(unittest.TestCase):
         html = url_get(url)
         utxos = json.loads(html)
         self.assertEqual(len(utxos), 1)
-        
+
     def test_url_get_with_network_off_cache_off(self):
         global config
         config['api-url'] = 'http://crypdex.io:3001/insight-api'
@@ -139,7 +139,7 @@ class TestCache(unittest.TestCase):
 
         url = '{}/addr/{}/balance'.format(config['api-url'], sentinel)
         balance = 123456
-        
+
         # create cache file
         config['networking-enabled'] = True
         satoshi = int(url_get(url))
@@ -149,7 +149,7 @@ class TestCache(unittest.TestCase):
         config['networking-enabled'] = False
         satoshi = int(url_get(url))
         self.assertEqual(satoshi, balance, 'cache read failed')
-        
+
 
 class TestGetBalance(unittest.TestCase):
 
@@ -163,7 +163,7 @@ class TestGetBalance(unittest.TestCase):
         bal = get_balance('1Nj4wdgAAxu3TP2WDZAWKefXbeD79WPiv')
         self.assertIsNone(bal, 'get_balance() returned {} instead of None when passed an invalid address'.format(bal))
 
-        
+
 class TestPriceFetch(unittest.TestCase):
 
     def test_get_bitcoin_price(self):
@@ -184,6 +184,6 @@ class TestGetUnspent(unittest.TestCase):
         bal = get_unspent('16YJG2tGrAhe4NPHeDfzwfmSkF16Mdzb2w')
         self.assertIsNone(bal, 'get_unspent() returned {} instead of None when passed an invalid address'.format(bal))
 
-        
+
 if __name__ == '__main__':
     unittest.main()

@@ -15,7 +15,7 @@ def valid_fee(arg):
         value = int(arg)
     except ValueError as err:
         raise argparse.ArgumentTypeError(str(err))
-    
+
     if value < 0:
         message = 'Miner fee must be a positive integer (Satoshis per byte)'
         raise argparse.ArgumentTypeError(message)

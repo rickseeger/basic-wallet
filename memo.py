@@ -25,7 +25,7 @@ def main():
     m = load_memos()
     m[txid] = memo
     save_memos(m)
-    
+
 
 if __name__ == "__main__":
     main()

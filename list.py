@@ -50,7 +50,7 @@ def main():
     n = len(report)
     for i in range(n):
         print '%3d' % i, report[i]
-        
+
 
 if __name__ == "__main__":
     main()

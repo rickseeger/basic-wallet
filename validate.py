@@ -106,4 +106,3 @@ def validate_address(bitcoin_address, magicbyte=0):
     # for example '14oLvT2' has a valid checksum, but is not a valid btc
     # address
     return bitcoin_address == encode_base58(bcbytes)
-
